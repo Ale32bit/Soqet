@@ -1,5 +1,5 @@
 /*
-    Ale's Net Server
+    Soqet Server by Ale32bit
 
     MIT License
 
@@ -149,6 +149,7 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
 
     ws.send(JSON.stringify({ // A friendly message upon connection
         type: "motd",
+        motd: "Welcome to the Soqet network",
         uuid: ws.uuid,
     }));
 

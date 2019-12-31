@@ -1,4 +1,4 @@
--- Ale's Net for ComputerCraft
+-- Soqet for ComputerCraft
 
 if not json then
 	if not fs.exists("json.lua") then
@@ -12,27 +12,27 @@ if not json then
 	json = require("json")
 end
 
-local net = {
-	server = "wss://net.ale32bit.me",
+local soqet = {
+	server = "wss://soqet.ale32bit.me",
 	socket = nil,
 	open_channels = {},
 	running = false,
 	uuid = nil,
 }
 
-function net.connect(force)
-	if not net.socket or force then
-		if net.socket then net.socket.close() end
-		local par, err = http.websocket(net.server)
+function soqet.connect(force)
+	if not soqet.socket or force then
+		if soqet.socket then soqet.socket.close() end
+		local par, err = http.websocket(soqet.server)
 		if not par then
 			error(err, 2)
 		end
-		net.socket = par
-		local dat = net.socket.receive()
+		soqet.socket = par
+		local dat = soqet.socket.receive()
 		local data = json.decode(dat)
-		net.uuid = data.uuid
-		for _, c in pairs(net.open_channels) do
-			net.open(c)
+		soqet.uuid = data.uuid
+		for _, c in pairs(soqet.open_channels) do
+			soqet.open(c)
 		end
 	end
 end
@@ -47,17 +47,17 @@ local function inTable(t, v)
 end
 
 local function send(data)
-	net.connect()
-	net.socket.send(json.encode(data))
+	soqet.connect()
+	soqet.socket.send(json.encode(data))
 end
 
 local function receive()
-	net.connect()
-	local cont = net.socket.receive()
+	soqet.connect()
+	local cont = soqet.socket.receive()
 	local data = json.decode(cont)
 	
 	if data.uuid then
-		net.uuid = data.uuid
+		soqet.uuid = data.uuid
 	end
 	if data.ok ~= nil and not data.ok then
 		error(data.error, 2)
@@ -66,34 +66,34 @@ local function receive()
 	return data
 end
 
-function net.disconnect()
-	if net.socket then net.socket.close() end
-	net.running = false
+function soqet.disconnect()
+	if soqet.socket then soqet.socket.close() end
+	soqet.running = false
 end
 
-function net.open(channel)
-	if not inTable(net.open_channels, channel) then
+function soqet.open(channel)
+	if not inTable(soqet.open_channels, channel) then
 		send({
 			type = "open",
 			channel = channel,
 		})
-		table.insert(net.open_channels, channel)
+		table.insert(soqet.open_channels, channel)
 	end
 end
 
-function net.close(channel)
-	local inT, i = inTable(net.open_channels, channel)
+function soqet.close(channel)
+	local inT, i = inTable(soqet.open_channels, channel)
 	if inT then
 		send({
 			type = "close",
 			channel = channel,
 		})
 		
-		net.open_channels[i] = nil
+		soqet.open_channels[i] = nil
 	end
 end
 
-function net.send(channel, message, meta)
+function soqet.send(channel, message, meta)
 	send({
 		type = "send",
 		channel = channel,
@@ -102,9 +102,9 @@ function net.send(channel, message, meta)
 	})
 end
 
-function net.receive(channel)
+function soqet.receive(channel)
 	if channel then
-		net.open(channel)
+		soqet.open(channel)
 	end
 	while true do
 		local data = receive()
@@ -114,7 +114,7 @@ function net.receive(channel)
 	end
 end
 
-function net.auth(token)
+function soqet.auth(token)
 	send({
 		type = "auth",
 		token = token,
@@ -122,14 +122,14 @@ function net.auth(token)
 	})
 end
 
-function net.listen()
-	net.running = true
-	while net.running do
+function soqet.listen()
+	soqet.running = true
+	while soqet.running do
 		local data = receive()
 		if data.type == "message" then
-			os.queueEvent("net_message", data.channel, data.message, data.meta, data.uuid)
+			os.queueEvent("soqet_message", data.channel, data.message, data.meta, data.uuid)
 		end
 	end
 end
 
-return net
+return soqet
