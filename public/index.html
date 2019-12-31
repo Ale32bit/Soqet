@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ale's Net Documentation</title>
+
+    <style>
+        body {
+            background-color: #004d40;
+            color: white;
+            font-family: sans-serif;
+            margin: 0;
+        }
+
+        .top {
+            border-bottom: white solid 2px;
+            width: 100%;
+        }
+
+        .top a {
+            color: white;
+        }
+
+        .top h1 {
+            padding-left: 10px;
+        }
+
+        .top ul {
+            list-style-type: none;
+        }
+
+        .top li {
+            display: inline;
+        }
+
+        .top li a {
+            padding: 14px 16px;
+        }
+
+        .top li a:link, a:visited, a:hover, a:active {
+            color: white;
+        }
+
+        .container {
+            padding-left: 20px;
+        }
+
+        .container h3 {
+            margin-bottom: 0;
+        }
+
+        .container .sub {
+            padding-left: 20px;
+            margin: 5px;
+        }
+
+        .container table {
+            border-collapse: collapse;
+        }
+
+        .container th {
+            height: 20px;
+            text-align: center;
+            padding-right: 20px;
+            padding-left: 20px;
+        }
+
+        .container td {
+            text-align: left;
+            padding: 5px;
+        }
+
+        .container table, th, td {
+            background-color: #263238;
+            border: 1px solid #546e7a;
+        }
+
+        .container code {
+            background-color: #263238;
+            padding: 2px;
+            font-weight: 600;
+            font-size: 16px;
+            font-family: monospace;
+        }
+
+        .codeblock {
+            background-color: #263238;
+            padding: 3px;
+            font-weight: 600;
+            font-size: 16px;
+            font-family: monospace;
+            width: 450px;
+            border: 1px solid #546e7a;
+        }
+    </style>
+</head>
+<body>
+
+<div class="top">
+    <ul>
+        <li><a style="font-size: 32px; font-weight: 600;">Ale's Net Docs</a></li>
+        <li><a href="/ui.html">Net Viewer</a></li>
+    </ul>
+</div>
+
+<div class="container">
+    <h3>Requests</h3>
+    <div class="sub">
+        <p>All communications with the server must be in JSON.</p>
+        <p>Responses of client requests will always contain the following fields:</p>
+        <table>
+            <tr>
+                <th>Field</th>
+                <th>Value</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>ok</td>
+                <td><i>boolean</i></td>
+                <td>Successful request</td>
+            </tr>
+            <tr>
+                <td>error*</td>
+                <td><i>string</i></td>
+                <td>Error message (Only if <b>ok</b> is <i>false</i>)</td>
+            </tr>
+            <tr>
+                <td>id</td>
+                <td><i>number</i></td>
+                <td>ID of the request provided by the client (defaults to <i>1</i>)</td>
+            </tr>
+            <tr>
+                <td>uuid</td>
+                <td><i>string</i></td>
+                <td>UUID of the client session (random if not authenticated)</td>
+            </tr>
+        </table>
+        <p><i>* Not always included</i></p>
+    </div>
+
+    <h3>Connection</h3>
+    <div class="sub">
+        <p>Connection is possible with WebSocket from the endpoint <code>wss://net.ale32bit.me/</code></p>
+    </div>
+
+    <h3>Events</h3>
+    <div class="sub">
+        <p>The events are messages sent by the server automatically and do not directly require any request.</p>
+        <p>Currently the events are:</p>
+
+        <h4>Ping <code>ping</code></h4>
+        <p>This event is sent every 10 seconds.</p>
+        <table>
+            <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>type</td>
+                <td>string</td>
+                <td>ping</td>
+            </tr>
+            <tr>
+                <td>time</td>
+                <td>number</td>
+                <td><i>Unix Epoch in milliseconds</i></td>
+            </tr>
+        </table>
+
+        <h4>Message <code>message</code></h4>
+        <p>Message events can only be received by opening channels.</p>
+        <table>
+            <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>type</td>
+                <td>string</td>
+                <td>message</td>
+            </tr>
+            <tr>
+                <td>channel</td>
+                <td>string / number</td>
+                <td><i>Channel name</i></td>
+            </tr>
+            <tr>
+                <td>message</td>
+                <td><i>any</i></td>
+                <td><i>Message sent by a client</i></td>
+            </tr>
+            <tr>
+                <td>meta</td>
+                <td>object</td>
+                <td>Contains metadata</td>
+            </tr>
+        </table>
+        <div class="sub">
+            <h4>Message metadata</h4>
+            <p>The message metadata contains additional information about the message, any client can add any value to it.</p>
+            <p>The server always sends these metadata by default (and overrides client's):</p>
+            <table>
+                <tr>
+                    <th>Field</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>uuid</td>
+                    <td>string</td>
+                    <td>UUID of the sender</td>
+                </tr>
+                <tr>
+                    <td>channel</td>
+                    <td>string / number</td>
+                    <td><i>Channel name</i></td>
+                </tr>
+                <tr>
+                    <td>time</td>
+                    <td>number</td>
+                    <td><i>Unix epoch of the date the message was sent</i></td>
+                </tr>
+                <tr>
+                    <td>guest</td>
+                    <td>boolean</td>
+                    <td>If the sender was authenticated</td>
+                </tr>
+            </table>
+        </div>
+
+        <h4>Message of the day <code>motd</code></h4>
+        <p>This event is sent upon connection to the server</p>
+        <table>
+            <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>type</td>
+                <td>string</td>
+                <td>motd</td>
+            </tr>
+            <tr>
+                <td>motd</td>
+                <td>string</td>
+                <td><i>Any message the </i></td>
+            </tr>
+        </table>
+
+    </div>
+
+    <h3>Authentication</h3>
+    <div class="sub">
+        <p>It's possible to get unique and persistent UUIDs by authenticating with a token.</p>
+
+        <p>Request format:</p>
+        <div class="codeblock">
+<pre>{
+    "type": "auth",
+    "token": "MyToken",
+    "id": 4
+}</pre>
+        </div>
+    </div>
+
+    <h3>Opening a channel</h3>
+    <div class="sub">
+        <p>Opening channels allows the receiving of messages from other clients.</p>
+        <p>The <b>Wildcard</b> to listen to all channels is <code>*</code>.</p>
+        <p>Request format:</p>
+        <div class="codeblock">
+<pre>{
+    "type": "open",
+    "channel": "channel_name",
+    "id": 3
+}</pre>
+        </div>
+    </div>
+
+    <h3>Closing a channel</h3>
+    <div class="sub">
+        <p>Closing channels will stop getting messages from other clients.</p>
+        <p>Request format:</p>
+        <div class="codeblock">
+<pre>{
+    "type": "close",
+    "channel": "channel_name",
+    "id": 2
+}</pre>
+        </div>
+    </div>
+
+    <h3>Sending a message</h3>
+    <div class="sub">
+        <p>The main point of this server is to transmit messages remotely.</p>
+        <p>Request format:</p>
+        <div class="codeblock">
+<pre>{
+    "type": "send",
+    "channel": "channel_name",
+    "message": "<i>Any type</i>",
+    "meta": {} // <i>This is optional</i>
+    "id": 1
+}</pre>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>
