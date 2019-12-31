@@ -64,20 +64,16 @@ function createID(token) { // From krist-utils, generate an ID from the token, l
     return prefix;
 }
 
-function disconnect(uuid, to) { // remove a client UUID from all channels. replace to "to" instead of removing if present.
-    for(let chn in channels) {
+function disconnect(sID) { // remove a client UUID from all channels.
+    for (let chn in channels) {
         let ch = channels[chn];
-        for(let i = 0; i<ch.length; i++){
-            if(ch[i] === uuid){
-                if(to) {
-                    ch[i] = to;
-                } else {
-                    let index = ch.indexOf(uuid);
-                    ch.splice(index, 1)
-                }
+        for (let i = 0; i < ch.length; i++) {
+            if (ch[i] === sID) {
+                let index = ch.indexOf(sID);
+                ch.splice(index, 1)
             }
         }
-        if(ch.length === 0) {
+        if (ch.length === 0) {
             delete channels[chn]
         }
     }
@@ -87,9 +83,9 @@ const server = new WebSocket.Server({ // create the websocket server, port is fr
     port: config.port,
 });
 
-function getClient(uuid) { // just a for loop to get the ws client from the uuid
+function getClient(sID) { // just a for loop to get the ws client from the session ID
     for (let item of server.clients) {
-        if (item.uuid === uuid) {
+        if (item.sID === sID) {
             return item;
         }
     }
@@ -103,10 +99,10 @@ function transmit(channel, message, meta, ignore = null) { // transmit a message
             return;
         }
 
-        channels[channel].forEach(uuid => {
-            if (ignore === uuid) return;
+        channels[channel].forEach(sID => {
+            if (ignore === sID) return;
 
-            let ws = getClient(uuid);
+            let ws = getClient(sID);
             if (ws) {
                 ws.send(JSON.stringify({
                     type: "message",
@@ -118,8 +114,8 @@ function transmit(channel, message, meta, ignore = null) { // transmit a message
         });
 
         if (channels[WILDCARD]) { // send message to WILDCARD channel
-            channels[WILDCARD].forEach(uuid => {
-                let ws = getClient(uuid);
+            channels[WILDCARD].forEach(sID => {
+                let ws = getClient(sID);
                 if (ws) {
                     ws.send(JSON.stringify({
                         type: "message",
@@ -138,9 +134,10 @@ function transmit(channel, message, meta, ignore = null) { // transmit a message
 server.on("connection", ws => { // Listen to clients connecting to the websocket server
 
     ws.uuid = random(); // assign a random UUID as guest
+    ws.sID = random(undefined, "S"); // Session ID
     ws.auth = false; // not authenticated by default
 
-    console.log("Connect:", ws.uuid);
+    console.log("Connect:", ws.uuid, ws.sID);
 
     let pingInterval = setInterval(function () { // Send a ping to the client every 10 seconds to keep the connection alive
         ws.send(JSON.stringify({
@@ -198,7 +195,7 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
                 meta.guest = !ws.auth; // if not authenticated
 
 
-                transmit(data.channel, data.message, meta, ws.uuid); // proceed to send the message
+                transmit(data.channel, data.message, meta, ws.sID); // proceed to send the message
 
                 ws.send(JSON.stringify({
                     ok: true,
@@ -222,7 +219,7 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
                 if ((typeof data.channel === "string" && data.channel.length <= 256) || typeof data.channel === "number") {
 
                     if (!channels[data.channel]) channels[data.channel] = [];
-                    channels[data.channel].push(ws.uuid);
+                    channels[data.channel].push(ws.sID);
 
                     ws.send(JSON.stringify({
                         ok: true,
@@ -250,7 +247,7 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
                 }
 
                 if (channels[data.channel]) { // remove uuid from the channel
-                    let index = channels[data.channel].indexOf(ws.uuid);
+                    let index = channels[data.channel].indexOf(ws.sID);
                     if (index >= 0) {
                         channels[data.channel].splice(index, 1);
                     }
@@ -288,8 +285,6 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
 
                 console.log(`AUTH: ${olduuid} is now ${ws.uuid}`);
 
-                disconnect(olduuid, authid); // this will replace the old UUID with the new one
-
                 return ws.send(JSON.stringify({
                     ok: true,
                     uuid: ws.uuid,
@@ -308,15 +303,15 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
     });
 
     ws.on("close", (code, reason) => { // WS Client disconnects
-        console.log("Close:", ws.uuid, `(${code} ${reason})`);
+        console.log("Close:", ws.uuid, ws.sID, `(${code} ${reason})`);
         clearInterval(pingInterval); // Clear Ping interval
 
         // remove uuid from all channels
-        disconnect(ws.uuid);
+        disconnect(ws.sID);
     });
 
     ws.on("error", (err) => {
-        console.error(ws.uuid, err) // it can happen
+        console.error(ws.uuid, ws.sID, err) // it can happen
     });
 });
 
