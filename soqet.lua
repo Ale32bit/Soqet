@@ -1,135 +1,157 @@
--- Soqet for ComputerCraft
+--[[
+ -- Soqet.lua --
+https://github.com/Ale32bit/Soqet/
 
-if not json then
-	if not fs.exists("json.lua") then
-		local h = http.get("https://raw.githubusercontent.com/rxi/json.lua/master/json.lua")
-		local f = fs.open("json.lua", "w")
-		f.write(h.readAll())
-		f.close()
-		h.close()
-	end
-	
-	json = require("json")
-end
+MIT License
+
+Copyright (c) 2019 Alessandro
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+]]--
+
+--[[
+ -- json.lua --
+https://github.com/rxi/json.lua
+
+Copyright (c) 2019 rxi
+
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+]]--
+
+local h = http.get("https://raw.githubusercontent.com/rxi/json.lua/master/json.lua")
+local f = fs.open("json.lua", "w")
+f.write(h.readAll())
+f.close()
+h.close()
+
+local json = require("json")
 
 local soqet = {
-	server = "wss://soqet.ale32bit.me",
-	socket = nil,
-	open_channels = {},
-	running = false,
-	uuid = nil,
+    ENDPOINT = "wss://net.ale32bit.me",
+    channels = {},
+    socket = nil,
+    running = false,
+    uuid = nil,
 }
 
-function soqet.connect(force)
-	if not soqet.socket or force then
-		if soqet.socket then soqet.socket.close() end
-		local par, err = http.websocket(soqet.server)
-		if not par then
-			error(err, 2)
-		end
-		soqet.socket = par
-		local dat = soqet.socket.receive()
-		local data = json.decode(dat)
-		soqet.uuid = data.uuid
-		for _, c in pairs(soqet.open_channels) do
-			soqet.open(c)
-		end
-	end
-end
-
-local function inTable(t, v)
-	for i, va in pairs(t) do
-		if va == v then
-			return true, i
-		end
-	end
-	return false
-end
-
 local function send(data)
-	soqet.connect()
-	soqet.socket.send(json.encode(data))
+    if not soqet.socket then
+        soqet.connect()
+    end
+    
+    return soqet.socket.send(json.encode(data))
 end
 
 local function receive()
-	soqet.connect()
-	local cont = soqet.socket.receive()
-	local data = json.decode(cont)
-	
-	if data.uuid then
-		soqet.uuid = data.uuid
-	end
-	if data.ok ~= nil and not data.ok then
-		error(data.error, 2)
-	end
-	
-	return data
+    if not soqet.socket then
+        soqet.connect()
+    end
+    
+    while true do
+        local data = soqet.socket.receive()
+        data = json.decode(data)
+        soqet.uuid = data.uuid
+        if data.type == "message" then
+            local message = data.message
+            local channel = data.channel
+            local meta = data.meta
+            
+            return channel, message, meta
+        elseif data.type == "ping" then
+            send({
+                type = "ping",
+                id = 5,
+            })
+        end
+    end
 end
 
-function soqet.disconnect()
-	if soqet.socket then soqet.socket.close() end
-	soqet.running = false
+function soqet.connect()
+    soqet.socket = http.websocket(soqet.ENDPOINT)
 end
 
 function soqet.open(channel)
-	if not inTable(soqet.open_channels, channel) then
-		send({
-			type = "open",
-			channel = channel,
-		})
-		table.insert(soqet.open_channels, channel)
-	end
+    send({
+        type = "open",
+        channel = channel,
+        id = 2,
+    })
 end
 
 function soqet.close(channel)
-	local inT, i = inTable(soqet.open_channels, channel)
-	if inT then
-		send({
-			type = "close",
-			channel = channel,
-		})
-		
-		soqet.open_channels[i] = nil
-	end
-end
-
-function soqet.send(channel, message, meta)
-	send({
-		type = "send",
-		channel = channel,
-		message = message,
-		meta = meta,
-	})
-end
-
-function soqet.receive(channel)
-	if channel then
-		soqet.open(channel)
-	end
-	while true do
-		local data = receive()
-		if data.type == "message" then
-			return data.channel, data.message, data.meta
-		end
-	end
+    send({
+        type = "close",
+        channel = channel,
+        id = 3,
+    })
 end
 
 function soqet.auth(token)
-	send({
-		type = "auth",
-		token = token,
-		id = 2,
-	})
+    send({
+        type = "auth",
+        token = token,
+        id = 4,
+    })
+end
+
+function soqet.send(channel, message, metadata)
+    send({
+        type = "send",
+        channel = channel,
+        message = message,
+        meta = metadata or {},
+        id = 1,
+    })
+end
+
+function soqet.receive()
+    return receive()
 end
 
 function soqet.listen()
-	soqet.running = true
-	while soqet.running do
-		local data = receive()
-		if data.type == "message" then
-			os.queueEvent("soqet_message", data.channel, data.message, data.meta, data.uuid)
-		end
-	end
+    soqet.running = true
+    while soqet.running do
+        local channel, message, metadata = receive()
+        os.queueEvent("soqet_message", channel, message, meta)
+    end
+end
+
+function soqet.unlisten()
+    soqet.running = false
 end
 
 return soqet
