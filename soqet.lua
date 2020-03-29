@@ -128,12 +128,12 @@ function soqet.auth(token)
     })
 end
 
-function soqet.send(channel, message, metadata)
+function soqet.send(channel, message, meta)
     send({
         type = "send",
         channel = channel,
         message = message,
-        meta = metadata or {},
+        meta = meta or {},
         id = 1,
     })
 end
@@ -145,7 +145,7 @@ end
 function soqet.listen()
     soqet.running = true
     while soqet.running do
-        local channel, message, metadata = receive()
+        local channel, message, meta = receive()
         os.queueEvent("soqet_message", channel, message, meta)
     end
 end
