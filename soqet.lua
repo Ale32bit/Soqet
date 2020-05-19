@@ -61,7 +61,7 @@ h.close()
 local json = require("json")
 
 local soqet = {
-    ENDPOINT = "wss://net.ale32bit.me",
+    ENDPOINT = "wss://soqet.alexdevs.pw",
     channels = {},
     socket = nil,
     running = false,
