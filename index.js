@@ -6,10 +6,12 @@
 */
 
 const WebSocket = require("ws");
+const net = require("net");
 const crypto = require("crypto");
 const config = require("./config.json");
 
 const channels = {};
+const clients = [];
 const WILDCARD = '*';
 
 // ---- FUNCTIONS ----
@@ -83,8 +85,10 @@ const server = new WebSocket.Server({ // create the websocket server, port is fr
     port: config.port,
 });
 
+const netServer = net.createServer();
+
 function getClient(sID) { // just a for loop to get the ws client from the session ID
-    for (let item of server.clients) {
+    for (let item of clients) {
         if (item.sID === sID) {
             return item;
         }
@@ -93,25 +97,25 @@ function getClient(sID) { // just a for loop to get the ws client from the sessi
 
 function transmit(channel, message, meta, ignore = null) { // transmit a message to the channel. WILDCARD channel is read-only
     try {
-        if (!channels[channel]) return;
-
         if (channel === WILDCARD) { // prevents from sending a message directly to WILDCARD channel
             return;
         }
 
-        channels[channel].forEach(sID => {
-            if (ignore === sID) return;
+        if(channels[channel]) {
+            channels[channel].forEach(sID => {
+                if (ignore === sID) return;
 
-            let ws = getClient(sID);
-            if (ws) {
-                ws.send(JSON.stringify({
-                    type: "message",
-                    channel: channel,
-                    message: message,
-                    meta: meta,
-                }))
-            }
-        });
+                let ws = getClient(sID);
+                if (ws) {
+                    ws.send(JSON.stringify({
+                        type: "message",
+                        channel: channel,
+                        message: message,
+                        meta: meta,
+                    }))
+                }
+            });
+        }
 
         if (channels[WILDCARD]) { // send message to WILDCARD channel
             channels[WILDCARD].forEach(sID => {
@@ -131,29 +135,8 @@ function transmit(channel, message, meta, ignore = null) { // transmit a message
     }
 }
 
-server.on("connection", ws => { // Listen to clients connecting to the websocket server
-
-    ws.uuid = random(); // assign a random UUID as guest
-    ws.sID = random(undefined, "S"); // Session ID
-    ws.auth = false; // not authenticated by default
-
-    console.log("Connect:", ws.uuid, ws.sID);
-
-    let pingInterval = setInterval(function () { // Send a ping to the client every 10 seconds to keep the connection alive
-        ws.send(JSON.stringify({
-            type: "ping",
-            uuid: ws.uuid,
-            ping: Date.now(),
-        }))
-    }, 10000);
-
-    ws.send(JSON.stringify({ // A friendly message upon connection
-        type: "motd",
-        motd: "Welcome to the Soqet network",
-        uuid: ws.uuid,
-    }));
-
-    ws.on("message", message => {
+function onMessage(ws) {
+    return function(message) {
         let data;
         try {
             data = JSON.parse(message);
@@ -189,7 +172,8 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
 
                 // create the message meta
 
-                let meta = data.meta || {};
+                let meta = typeof data.meta === "object" && !Array.isArray(data.meta) ? data.meta : {};
+
                 meta.uuid = ws.uuid; // sender uuid
                 meta.time = Date.now(); // time of sending
                 meta.channel = data.channel; // channel
@@ -301,7 +285,35 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
                     id: data.id,
                 }))
         }
-    });
+    }
+}
+
+server.on("connection", ws => { // Listen to clients connecting to the websocket server
+
+    ws.uuid = random(); // assign a random UUID as guest
+    ws.sID = random(undefined, "S"); // Session ID
+    ws.auth = false; // not authenticated by default
+    ws.type = "websocket";
+
+    clients.push(ws);
+
+    console.log("Connect:", ws.uuid, ws.sID);
+
+    let pingInterval = setInterval(function () { // Send a ping to the client every 10 seconds to keep the connection alive
+        ws.send(JSON.stringify({
+            type: "ping",
+            uuid: ws.uuid,
+            ping: Date.now(),
+        }))
+    }, 10000);
+
+    ws.send(JSON.stringify({ // A friendly message upon connection
+        type: "motd",
+        motd: "Welcome to the Soqet network",
+        uuid: ws.uuid,
+    }));
+
+    ws.on("message", onMessage(ws));
 
     ws.on("close", (code, reason) => { // WS Client disconnects
         console.log("Close:", ws.uuid, ws.sID, `(${code} ${reason})`);
@@ -315,5 +327,50 @@ server.on("connection", ws => { // Listen to clients connecting to the websocket
         console.error(ws.uuid, ws.sID, err) // it can happen
     });
 });
+
+netServer.on("connection", socket => {
+    socket.send = function(data) {
+        return socket.write(data)
+    }
+
+    socket.uuid = random();
+    socket.sID = random(undefined, "S");
+    socket.auth = false;
+    socket.type = "socket"
+
+    clients.push(socket)
+
+    console.log("TCP Connect:", socket.uuid, socket.sID);
+
+    let pingInterval = setInterval(function () { // Send a ping to the client every 10 seconds to keep the connection alive
+        socket.send(JSON.stringify({
+            type: "ping",
+            uuid: socket.uuid,
+            ping: Date.now(),
+        }))
+    }, 10000);
+
+    socket.send(JSON.stringify({ // A friendly message upon connection
+        type: "motd",
+        motd: "Welcome to the Soqet network",
+        uuid: socket.uuid,
+    }));
+
+    socket.on("data", onMessage(socket));
+
+    socket.on("close", (code, reason) => { // WS Client disconnects
+        console.log("Close:", socket.uuid, socket.sID, `(${code} ${reason})`);
+        clearInterval(pingInterval); // Clear Ping interval
+
+        // remove uuid from all channels
+        disconnect(socket.sID);
+    });
+
+    socket.on("error", (err) => {
+        console.error(socket.uuid, socket.sID, err) // it can happen
+    });
+})
+
+netServer.listen(config.tcp_port);
 
 // hopefully this service will help cc communities
