@@ -66,6 +66,7 @@ local soqet = {
     socket = nil,
     running = false,
     uuid = nil,
+    sessionId = nil,
 }
 
 local function send(data)
@@ -83,6 +84,7 @@ local function receive()
     
     while true do
         local data = soqet.socket.receive()
+        
         data = json.decode(data)
         soqet.uuid = data.uuid
         if data.type == "message" then
@@ -101,7 +103,13 @@ local function receive()
 end
 
 function soqet.connect()
-    soqet.socket = http.websocket(soqet.ENDPOINT)
+    assert(http.websocket, "WebSocket not enabled or not compatible with this ComputerCraft version.")
+    soqet.sessionId = tostring(math.random(0xffffff))
+    local socket, err = http.websocket(soqet.ENDPOINT .. "/" .. soqet.sessionId)
+    if not soqet.socket then
+        error(err, 1);
+    end
+    soqet.socket = socket;
 end
 
 function soqet.open(channel)
@@ -152,6 +160,110 @@ end
 
 function soqet.unlisten()
     soqet.running = false
+end
+
+soqet.polling = {
+    host = "https://soqet.alexdevs.pw",
+    token = nil,
+    uuid = nil,
+    motd = "soqet",
+    connected = false,
+};
+
+function soqet.polling.connect(token)
+    local h, err = http.get(soqet.polling.host .. "/api/connect?token=" .. textutils.urlEncode(token));
+    if not h then
+        return false, err
+    end
+
+    local result = json.decode(h.readAll())
+
+    if not result.ok then
+        return false, result.error
+    end
+
+    soqet.polling.token = result.token
+    soqet.polling.motd = result.motd
+    soqet.polling.connected = true
+
+    return true
+end
+
+function soqet.polling.update()
+    local h, err = http.post(soqet.polling.host .. "/api/update", textutils.serialiseJSON({
+        token = soqet.polling.token,
+    }))
+
+    if not h then
+        return false, err
+    end
+
+    local result = json.decode(h.readAll());
+
+    if not result.ok then
+        return false, result.err
+    end
+
+    return result.queue
+end
+
+function soqet.polling.open(channel)
+    local h, err = http.post(soqet.polling.host .. "/api/open", textutils.serialiseJSON({
+        token = soqet.polling.token,
+        channel = channel,
+    }))
+
+    if not h then
+        return false, err
+    end
+
+    local result = json.decode(h.readAll());
+
+    if not result.ok then
+        return false, result.err
+    end
+
+    return true
+end
+
+function soqet.polling.close(channel)
+    local h, err = http.post(soqet.polling.host .. "/api/close", textutils.serialiseJSON({
+        token = soqet.polling.token,
+        channel = channel,
+    }))
+
+    if not h then
+        return false, err
+    end
+
+    local result = json.decode(h.readAll());
+
+    if not result.ok then
+        return false, result.err
+    end
+
+    return true
+end
+
+function soqet.polling.send(channel, message, meta)
+    local h, err = http.post(soqet.polling.host .. "/api/send", textutils.serialiseJSON({
+        token = soqet.polling.token,
+        channel = channel,
+        message = message,
+        meta = meta,
+    }))
+
+    if not h then
+        return false, err
+    end
+
+    local result = json.decode(h.readAll());
+
+    if not result.ok then
+        return false, result.err
+    end
+
+    return true
 end
 
 return soqet
