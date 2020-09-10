@@ -106,7 +106,7 @@ function soqet.connect()
     assert(http.websocket, "WebSocket not enabled or not compatible with this ComputerCraft version.")
     soqet.sessionId = tostring(math.random(0xffffff))
     local socket, err = http.websocket(soqet.ENDPOINT .. "/" .. soqet.sessionId)
-    if not soqet.socket then
+    if not socket then
         error(err, 1);
     end
     soqet.socket = socket;
