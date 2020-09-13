@@ -4,7 +4,7 @@ https://github.com/Ale32bit/Soqet/
 
 MIT License
 
-Copyright (c) 2019 Alessandro
+Copyright (c) 2020 Alessandro
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
