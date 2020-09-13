@@ -137,10 +137,12 @@ function soqet.new()
             pcall(client.socket.close)
         end
 
-        client.socket, err = http.websocket(client.ENDPOINT)
-        if not client.socket then
+        local socket, err = http.websocket(client.ENDPOINT)
+        if not socket then
             return false, err
         end
+
+        client.socket = socket
 
         for i, v in pairs(client.channels) do
             client.open(v)
