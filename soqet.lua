@@ -23,7 +23,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-]]--
+]] --
 
 --[[
  -- json.lua --
@@ -50,220 +50,359 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-]]--
+]] --
 
-local h = http.get("https://raw.githubusercontent.com/rxi/json.lua/master/json.lua")
-local f = fs.open("json.lua", "w")
-f.write(h.readAll())
-f.close()
-h.close()
-
-local json = require("json")
+local expect = dofile("rom/modules/main/cc/expect.lua").expect
 
 local soqet = {
-    ENDPOINT = "wss://soqet.alexdevs.pw",
-    channels = {},
-    socket = nil,
-    running = false,
-    uuid = nil,
-    sessionId = nil,
+    ENDPOINT = "soqet.alexdevs.pw",
+    ssl = true,
+    json = json,
+    credits = "Soqet.lua v2 by AlexDevs"
 }
 
-local function send(data)
-    if not soqet.socket then
-        soqet.connect()
+if not soqet.json then
+    if not fs.exists("json.lua") then
+        local h = http.get("https://raw.githubusercontent.com/rxi/json.lua/master/json.lua")
+        local f = fs.open("json.lua", "w")
+        f.write(h.readAll())
+        f.close()
+        h.close()
     end
-    
-    return soqet.socket.send(json.encode(data))
+
+    soqet.json = require("json")
 end
 
-local function receive()
-    if not soqet.socket then
-        soqet.connect()
+function soqet.new()
+    if not http then
+        return false, "HTTP is not enabled!"
     end
-    
-    while true do
-        local data = soqet.socket.receive()
-        
-        data = json.decode(data)
-        soqet.uuid = data.uuid
-        if data.type == "message" then
-            local message = data.message
-            local channel = data.channel
-            local meta = data.meta
-            
-            return channel, message, meta
-        elseif data.type == "ping" then
-            send({
-                type = "ping",
-                id = 5,
-            })
+
+    if not http.websocket then
+        return false, "HTTP WebSocket feature is not enabled!"
+    end
+
+    local client = {
+        channels = {},
+        uuid = nil,
+        socket = nil,
+        sessionId = math.random(0xffffff),
+        ssl = soqet.ssl
+    }
+
+    local function rawsend(data)
+        if not client.socket then
+            return false
+        end
+
+        client.socket.send(soqet.json.encode(data))
+        return true
+    end
+
+    local function rawreceive()
+        if not client.socket then
+            client.connect()
+        end
+
+        while true do
+            local data = client.socket.receive()
+
+            data = soqet.json.decode(data)
+
+            client.uuid = data.uuid
+
+            if data.type == "ping" then
+                rawsend(
+                    {
+                        type = "ping",
+                        id = 99
+                    }
+                )
+            elseif data.type == "motd" then
+                client.motd = data.motd
+            elseif data.type == "message" then
+                return data.channel, data.message, data.meta
+            end
         end
     end
-end
 
-function soqet.connect()
-    assert(http.websocket, "WebSocket not enabled or not compatible with this ComputerCraft version.")
-    soqet.sessionId = tostring(math.random(0xffffff))
-    local socket, err = http.websocket(soqet.ENDPOINT .. "/" .. soqet.sessionId)
-    if not soqet.socket then
-        error(err, 1);
-    end
-    soqet.socket = socket;
-end
-
-function soqet.open(channel)
-    send({
-        type = "open",
-        channel = channel,
-        id = 2,
-    })
-end
-
-function soqet.close(channel)
-    send({
-        type = "close",
-        channel = channel,
-        id = 3,
-    })
-end
-
-function soqet.auth(token)
-    send({
-        type = "auth",
-        token = token,
-        id = 4,
-    })
-end
-
-function soqet.send(channel, message, meta)
-    send({
-        type = "send",
-        channel = channel,
-        message = message,
-        meta = meta or {},
-        id = 1,
-    })
-end
-
-function soqet.receive()
-    return receive()
-end
-
-function soqet.listen()
-    soqet.running = true
-    while soqet.running do
-        local channel, message, meta = receive()
-        os.queueEvent("soqet_message", channel, message, meta)
-    end
-end
-
-function soqet.unlisten()
-    soqet.running = false
-end
-
-soqet.polling = {
-    host = "https://soqet.alexdevs.pw",
-    token = nil,
-    uuid = nil,
-    motd = "soqet",
-    connected = false,
-};
-
-function soqet.polling.connect(token)
-    local h, err = http.get(soqet.polling.host .. "/api/connect?token=" .. textutils.urlEncode(token));
-    if not h then
-        return false, err
+    if ssl then
+        client.ENDPOINT = "wss://" .. soqet.ENDPOINT .. "/" .. client.sessionId
+    else
+        client.ENDPOINT = "ws://" .. soqet.ENDPOINT .. "/" .. client.sessionId
     end
 
-    local result = json.decode(h.readAll())
+    function client.connect()
+        if client.socket then
+            pcall(client.socket.close)
+        end
 
-    if not result.ok then
-        return false, result.error
+        client.socket, err = http.websocket(client.ENDPOINT)
+        if not client.socket then
+            return false, err
+        end
+
+        for i, v in pairs(client.channels) do
+            client.open(v)
+        end
+
+        return true
     end
 
-    soqet.polling.token = result.token
-    soqet.polling.motd = result.motd
-    soqet.polling.connected = true
+    function client.open(channel)
+        expect(1, channel, "string", "number")
 
-    return true
+        client.channels[#client.channels + 1] = channel
+
+        return rawsend(
+            {
+                type = "open",
+                channel = channel
+            }
+        )
+    end
+
+    function client.close(channel)
+        expect(1, channel, "string", "number")
+
+        for i, v in pairs(client.channels) do
+            if v == channel then
+                client.channels[i] = nil
+            end
+        end
+
+        return rawsend(
+            {
+                type = "close",
+                channel = channel
+            }
+        )
+    end
+
+    function client.send(channel, message, meta)
+        expect(1, channel, "string", "number")
+        expect(3, meta, "nil", "table")
+
+        meta = meta or {}
+        meta.library = meta.library or soqet.credits
+
+        return rawsend(
+            {
+                type = "send",
+                channel = channel,
+                message = message,
+                meta = meta
+            }
+        )
+    end
+
+    function client.auth(token)
+        expect(1, token, "string")
+
+        return rawsend(
+            {
+                type = "auth",
+                token = token
+            }
+        )
+    end
+
+    function client.receive()
+        return rawreceive()
+    end
+
+    function client.listen()
+        client.listening = true
+        while client.listening do
+            local channel, message, meta = rawreceive()
+            os.queueEvent("soqet_message", channel, message, meta, client.sessionId)
+        end
+        return true
+    end
+
+    function client.unlisten()
+        client.listening = false
+
+        return true
+    end
+
+    return client, client.sessionId
 end
 
-function soqet.polling.update()
-    local h, err = http.post(soqet.polling.host .. "/api/update", textutils.serialiseJSON({
-        token = soqet.polling.token,
-    }))
+function soqet.poll(token)
+    local client = {
+        channels = {},
+        uuid = nil,
+        sessionId = math.random(0xffffff),
+        sessionToken = nil,
+        ssl = soqet.ssl,
+        connected = false,
+        listening = true,
+        updateInterval = 1
+    }
 
-    if not h then
-        return false, err
+    if ssl then
+        client.ENDPOINT = "https://" .. soqet.ENDPOINT
+    else
+        client.ENDPOINT = "http://" .. soqet.ENDPOINT
     end
 
-    local result = json.decode(h.readAll());
-
-    if not result.ok then
-        return false, result.err
+    local function postJson(path, body)
+        return http.post(
+            client.ENDPOINT .. "/api/" .. path,
+            soqet.json.encode(body),
+            {
+                ["Content-Type"] = "application/json"
+            }
+        )
     end
 
-    return result.queue
-end
+    local function rawreceive()
+        if not client.connected then
+            client.connect()
+        end
+        while true do
+            local h, err =
+                postJson(
+                "update",
+                {
+                    token = client.sessionToken
+                }
+            )
 
-function soqet.polling.open(channel)
-    local h, err = http.post(soqet.polling.host .. "/api/open", textutils.serialiseJSON({
-        token = soqet.polling.token,
-        channel = channel,
-    }))
+            if not h then
+                error(err)
+            end
 
-    if not h then
-        return false, err
+            local data = soqet.json.decode(h.readAll())
+            h.close()
+
+            local queue = {}
+
+            for i, v in ipairs(data.queue) do
+                if v.type == "message" then
+                    table.insert(
+                        queue,
+                        {
+                            channel = v.channel,
+                            message = v.message,
+                            meta = v.meta
+                        }
+                    )
+                end
+            end
+
+            if #queue > 0 then
+                return queue
+            else
+                sleep(client.updateInterval)
+            end
+        end
     end
 
-    local result = json.decode(h.readAll());
+    function client.connect(token)
+        expect(1, token, "nil", "string")
 
-    if not result.ok then
-        return false, result.err
+        local h, err, eh = http.get(client.ENDPOINT .. "/api/connect?token=" .. textutils.urlEncode(token or ""))
+
+        if not h then
+            return false, err, eh
+        end
+
+        local data = soqet.json.decode(h.readAll())
+
+        h.close()
+
+        client.uuid = data.uuid
+        client.sessionToken = data.token
+        client.motd = data.motd
+
+        client.connected = true
+
+        for i, v in pairs(client.channels) do
+            client.open(v)
+        end
+
+        return true
     end
 
-    return true
-end
+    function client.open(channel)
+        expect(1, channel, "string", "number")
 
-function soqet.polling.close(channel)
-    local h, err = http.post(soqet.polling.host .. "/api/close", textutils.serialiseJSON({
-        token = soqet.polling.token,
-        channel = channel,
-    }))
+        client.channels[#client.channels + 1] = channel
 
-    if not h then
-        return false, err
+        postJson(
+            "open",
+            {
+                token = client.sessionToken,
+                channel = channel
+            }
+        )
+
+        return true
     end
 
-    local result = json.decode(h.readAll());
+    function client.close(channel)
+        expect(1, channel, "string", "number")
 
-    if not result.ok then
-        return false, result.err
+        for i, v in pairs(client.channels) do
+            if v == channel then
+                client.channels[i] = nil
+            end
+        end
+
+        postJson(
+            "close",
+            {
+                token = client.sessionToken,
+                channel = channel
+            }
+        )
+
+        return true
     end
 
-    return true
-end
+    function client.send(channel, message, meta)
+        expect(1, channel, "string", "number")
+        expect(3, meta, "nil", "table")
 
-function soqet.polling.send(channel, message, meta)
-    local h, err = http.post(soqet.polling.host .. "/api/send", textutils.serialiseJSON({
-        token = soqet.polling.token,
-        channel = channel,
-        message = message,
-        meta = meta,
-    }))
+        meta = meta or {}
+        meta.library = meta.library or soqet.credits
 
-    if not h then
-        return false, err
+        postJson(
+            "send",
+            {
+                token = client.sessionToken,
+                channel = channel,
+                message = message,
+                meta = meta
+            }
+        )
     end
 
-    local result = json.decode(h.readAll());
-
-    if not result.ok then
-        return false, result.err
+    function client.receive()
+        return rawreceive()
     end
 
-    return true
+    function client.listen()
+        client.listening = true
+        while client.listening do
+            local queue = rawreceive()
+
+            for i, v in ipairs(queue) do
+                os.queueEvent("soqet_message", v.channel, v.message, v.meta, client.sessionId)
+            end
+
+            sleep(client.updateInterval)
+        end
+    end
+
+    function client.unlisten()
+        client.listening = false
+        return true
+    end
+
+    return client
 end
 
 return soqet

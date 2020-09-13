@@ -30,6 +30,7 @@ interface Client {
 interface PollingClient extends Client {
     lastPing: number,
     queue: Array<any>,
+    token: string,
 }
 
 interface Channels {
@@ -428,6 +429,7 @@ pollingRouter.get("/connect", (req, res, next) => {
     client.client = req;
 
     client.queue = [];
+    client.token = sessionToken;
 
     client.send = function (data: string | object) {
         if (typeof data === "string") data = JSON.parse(data);
@@ -457,11 +459,6 @@ pollingRouter.use("*", function (req, res, next) {
         })
     }
 
-    let client = clients[pollingTokens[sessionToken]] as PollingClient;
-
-    client.lastPing = Date.now();
-
-    clients[pollingTokens[sessionToken]] = client; // you're never 100% sure
     next();
 })
 
@@ -547,6 +544,7 @@ pollingRouter.post("/update", (req, res, next) => {
         queue: client.queue,
     });
 
+    client.lastPing = Date.now();
     client.queue = [];
 })
 
@@ -571,13 +569,16 @@ app.listen(config.port, () => {
                 return obj;
             }, [] as Array<string>);
 
-        
+
 
         pClients.forEach(id => {
             let v = clients[id] as PollingClient;
 
             if ((Date.now() - v.lastPing) > 60000) {
+                console.log("[POL]", `Client connected: ${id}`);
+                let clientToken = (clients[id] as PollingClient).token;
                 delete clients[id];
+                delete pollingTokens[clientToken]
             }
         })
     }, 60000)
