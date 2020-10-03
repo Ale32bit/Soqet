@@ -317,7 +317,9 @@ app.ws("*", ws => {
     client.send = function (data: string | object) {
         if (typeof data === "object") data = JSON.stringify(data);
 
-        client.client.send(data)
+        if(client.client.readyState === ws.OPEN) {
+            client.client.send(data)
+        }
     }
 
     clients[client.id] = client;
