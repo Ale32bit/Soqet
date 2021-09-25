@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+
+<!-- This code kinda sucks. Pardon me -->
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Soqet Viewer</title>
+
+    <link rel="stylesheet" type="text/css" href="ui.css">
+    <noscript><a style="color:white;">JavaScript is required to run!</a></noscript>
+    <script>if (typeof module === 'object') {
+        window.module = module;
+        module = undefined;
+    }</script>
+    <script type="text/javascript">
+        let channels = {};
+
+        function addLine(message, latest) {
+            var list = document.getElementById('chat'); // get list
+            var entry = document.createElement('div'); // create <p>
+            entry.innerHTML = message;
+            entry.class = "chat"; // give class chat to the <p>
+            list.appendChild(entry); // add <p> to list
+            window.scrollTo(0, document.body.scrollHeight); // auto scroll to bottom
+        }
+
+        function sendMessage() {
+            //return false;
+            var message = document.getElementById("sendMsg").value;
+            var channel = document.getElementById("channel").value;
+            channel = Number.parseInt(channel) || channel;
+            message = (function(){
+                try {
+                    return JSON.parse(message);
+                } catch(e) {
+                    return message;
+                }
+            })();
+            if(!channels[channel]) {
+                ws.send(JSON.stringify({
+                    type: "open",
+                    channel: channel,
+                }));
+                channels[channel] = true
+            }
+            addLine("> "+message);
+
+            if (message !== "") {
+                ws.send(JSON.stringify({
+                    type: "send",
+                    channel: channel,
+                    message: message,
+                }));
+            }
+            document.getElementById("sendMsg").value = "";
+            return false;
+        }
+    </script>
+
+    <script>
+        var ws;
+
+        function startWS() {
+            ws = new WebSocket("wss://soqet.alexdevs.pw"); // Connect to WS server
+
+            ws.addEventListener("message", function (event) { // Listen to all messages from server
+                var data = JSON.parse(event.data); // Parse plain text to JSON
+                console.log(data);
+                if(data.type === "message") {
+                    addLine(`< [${data.channel}] <a style="color: #31D3FF">${JSON.stringify(data.message)}</a> <a style="color: #8a8a8a">${JSON.stringify(data.meta)}</a>`);
+                } else {
+                    if(data.type !== "ping") {
+                        addLine(`< <a style="color: #8a8a8a">${JSON.stringify(data)}</a>`);
+                    }
+                }
+
+            });
+        }
+
+        startWS(); // Start WS for the first time
+    </script>
+    <script>if (window.module) module = window.module;</script>
+</head>
+<body>
+<div style="width: 100%">
+    <a style="color: #8a8a8a; display:none;"></a>
+    <div id="escape" style="display: none;"></div>
+
+    <div class="displaychat">
+        <div id="container" style="display: block;">
+            <div class="chat" id="chat">
+
+            </div>
+            <div class="textinput" id="textinput">
+                <form onsubmit="return sendMessage()">
+                    <input id="channel" type="text" placeholder="Channel" autocomplete="true" style="width: 20%">
+                    <input id="sendMsg" type="text" placeholder="Message" autocomplete="true" autofocus>
+                    <input type="submit" value="Send" id="submitMsg">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

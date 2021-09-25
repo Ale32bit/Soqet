@@ -108,7 +108,8 @@
             <li><a style="font-size: 32px; font-weight: 600;">Soqet Docs</a></li>
             <li><a href="#polling">Polling</a></li>
             <li><a href="/ui.html">Soqet Viewer</a></li>
-            <li><a href="https://raw.githubusercontent.com/Ale32bit/Soqet/master/soqet.lua">Soqet.lua</a></li>
+            <li><a href="https://raw.githubusercontent.com/Ale32bit/Soqet/master/libs/cc_soqet.lua">CC Soqet</a></li>
+            <li><a href="https://raw.githubusercontent.com/Ale32bit/Soqet/master/libs/oc_soqet.lua">OC Soqet</a></li>
             <li><a href="https://github.com/Ale32bit/Soqet">Source code</a></li>
         </ul>
     </div>
@@ -292,12 +293,15 @@
         <h3>Connection</h3>
         <div class="sub">
             <p>Polling connection is possible via the GET URL
-                <code>https://soqet.alexdevs.pw/api/connect?token=[optional token here]</code>.</p>
+                <code>https://soqet.alexdevs.pw/api/connect?token=[optional token here]</code>.
+            </p>
             <p>Response is in <code>application/json</code> type and contains the session token used for requests in the
-                <code>token</code> field.</p>
+                <code>token</code> field.
+            </p>
             <p>Field <code>motd</code> is also supplied upon connection.</p>
 
-            <p><b>Once connected you need to request <code>/api/update</code> at least once every 60 seconds to keep the session token alive!</b>
+            <p><b>Once connected you need to request <code>/api/update</code> at least once every 60 seconds to keep the
+                    session token alive!</b>
             </p>
         </div>
 
@@ -384,7 +388,8 @@
 
         <h2 id="events">Events</h2>
         <div class="sub">
-            <p>The events are messages sent by the server automatically and do not directly require any request (unless client is using polling).</p>
+            <p>The events are messages sent by the server automatically and do not directly require any request (unless
+                client is using polling).</p>
             <p>Currently the events are:</p>
 
             <h4>Ping <code>ping</code></h4>
@@ -487,7 +492,8 @@
                 <tr>
                     <td>motd</td>
                     <td>string</td>
-                    <td><i>Inspiring quotes to help the developer and the user get over problems and easily achieve life goals.</i></td>
+                    <td><i>Inspiring quotes to help the developer and the user get over problems and easily achieve life
+                            goals.</i></td>
                 </tr>
             </table>
 

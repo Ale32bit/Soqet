@@ -1,6 +1,10 @@
 {
-  "port": 3004,
-  "tcp_port": 25555,
-  "wildcard_channel": "*",
-  "motd": "Welcome to the Soqet Network"
+  "motd": "Welcome to Soqet v2.0",
+  "httpPort": 3004,
+  "tcpPort": 25555,
+  "enableWebsocket": true,
+  "enableTCPSocket": true,
+  "enablePolling": true,
+  "wildcardChannel": "*",
+  "pollingInterval": 3600
 }
