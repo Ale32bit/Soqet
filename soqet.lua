@@ -126,7 +126,7 @@ function soqet.new()
         end
     end
 
-    if ssl then
+    if soqet.ssl then
         client.ENDPOINT = "wss://" .. soqet.ENDPOINT .. "/" .. client.sessionId
     else
         client.ENDPOINT = "ws://" .. soqet.ENDPOINT .. "/" .. client.sessionId
