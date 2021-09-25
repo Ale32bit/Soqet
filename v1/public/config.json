@@ -1,6 +1,0 @@
-{
-  "port": 3004,
-  "tcp_port": 25555,
-  "wildcard_channel": "*",
-  "motd": "Welcome to the Soqet Network"
-}
