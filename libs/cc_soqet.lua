@@ -55,7 +55,7 @@ SOFTWARE.
 local expect = dofile("rom/modules/main/cc/expect.lua").expect
 
 local soqet = {
-    ENDPOINT = "soqet.alexdevs.pw",
+    ENDPOINT = "soqet.alexdevs.me",
     ssl = true,
     json = json,
     credits = "Soqet.lua v2 by AlexDevs"

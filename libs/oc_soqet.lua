@@ -107,7 +107,7 @@ local function expect(index, value, ...)
 end
 
 local soqet = {
-  ENDPOINT = "soqet.alexdevs.pw",
+  ENDPOINT = "soqet.alexdevs.me",
   ssl = false,
   json = require("json"),
   credits = "OC_Soqet.lua by AlexDevs"

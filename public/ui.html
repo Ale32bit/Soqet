@@ -84,7 +84,7 @@
         var ws;
 
         function startWS() {
-            ws = new WebSocket("wss://soqet.alexdevs.pw"); // Connect to WS server
+            ws = new WebSocket("wss://soqet.alexdevs.me"); // Connect to WS server
 
             ws.addEventListener("message", function (event) { // Listen to all messages from server
                 var data = JSON.parse(event.data); // Parse plain text to JSON
