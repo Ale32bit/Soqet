@@ -9,7 +9,7 @@ This is the source code powering the Soqet Network.
 `wget https://raw.githubusercontent.com/Ale32bit/Soqet/master/libs/oc_soqet.lua soqet.lua`
 
 ## API Documentation
-Documentation can be found here: https://soqet.alexdevs.pw or check the `public/index.html`.
+Documentation can be found here: https://soqet.alexdevs.me or check the `public/index.html`.
 
 ## Self hosting
 ### Build
