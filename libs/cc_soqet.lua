@@ -57,11 +57,15 @@ local expect = dofile("rom/modules/main/cc/expect.lua").expect
 local soqet = {
     ENDPOINT = "soqet.alexdevs.me",
     ssl = true,
-    json = json,
-    credits = "Soqet.lua v2 by AlexDevs"
+    credits = "Soqet for CC by AlexDevs"
 }
 
-if not soqet.json then
+soqet.json = {
+    encode = textutils.serialiseJSON,
+    decode = textutils.unserialiseJSON,
+}
+
+if not soqet.json.encode or not soqet.json.decode then
     if not fs.exists("json.lua") then
         local h = http.get("https://raw.githubusercontent.com/rxi/json.lua/master/json.lua")
         local f = fs.open("json.lua", "w")
@@ -73,7 +77,7 @@ if not soqet.json then
     soqet.json = require("json")
 end
 
-function soqet.new()
+function soqet.new(token)
     if not http then
         return false, "HTTP is not enabled!"
     end
@@ -143,6 +147,13 @@ function soqet.new()
         end
 
         client.socket = socket
+
+        if type(token) == "string" then
+            rawsend({
+                type = "token",
+                token = token,
+            })
+        end
 
         for i, v in pairs(client.channels) do
             client.open(v)
