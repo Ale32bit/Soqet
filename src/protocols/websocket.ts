@@ -1,5 +1,7 @@
 import * as common from "../common";
 import WebSocket from "ws";
+import { IncomingMessage } from "http";
+import { Socket } from "net";
 
 export default function run(server: common.Server): void {
     if (!server.config.enableWebsocket) {
@@ -16,13 +18,13 @@ export default function run(server: common.Server): void {
         return;
     }
 
-    server.httpServer.on("upgrade", (req: any, socket: any, head: any) => {
+    server.httpServer.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
         wss.handleUpgrade(req, socket, head, ws => {
-            wss.emit("connection", ws);
+            wss.emit("connection", ws, req);
         })
     });
 
-    wss.on("connection", (ws) => {
+    wss.on("connection", (ws, req) => {
         function send (data: any) {
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify(data));
@@ -31,6 +33,7 @@ export default function run(server: common.Server): void {
 
         let client = server.buildClient(send);
         client.socket = ws;
+        client.ip = req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress;
 
         let pingInterval = setInterval(function () {
             send({
@@ -60,6 +63,7 @@ export default function run(server: common.Server): void {
 
         ws.on("close", (code, reason) => {
             server.log("[WS Close]", client.sessionId, code, reason);
+            server.destroyClient(client.sessionId)
             clearInterval(pingInterval);
         })
 

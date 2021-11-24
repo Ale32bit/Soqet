@@ -1,10 +1,11 @@
 {
-  "motd": "Welcome to Soqet v2.0",
+  "motd": "Welcome to Soqet v2.1",
   "httpPort": 3004,
   "tcpPort": 25555,
   "enableWebsocket": true,
   "enableTCPSocket": true,
   "enablePolling": true,
   "wildcardChannel": "*",
-  "pollingInterval": 3600
+  "pollingInterval": 3600,
+  "enablePrometheus": true
 }

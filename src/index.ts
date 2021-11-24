@@ -9,6 +9,8 @@ import websocket from "./protocols/websocket";
 import tcpsocket from "./protocols/tcpsocket";
 import pollingsocket from "./protocols/pollingsocket";
 
+import Prometheus from "./prometheus";
+
 const config = require("../config.json");
 const pack = require("../package.json");
 
@@ -30,7 +32,10 @@ function openChannel(sessionId: string, channel: string | number) {
     }
 
     // Create channel if it does not exist
-    if (!server.channels[channel]) server.channels[channel] = [];
+    if (!server.channels[channel]) {
+        server.channels[channel] = [];
+        server.prometheus.openChannelsGauge.inc();
+    }
 
     // Add client to channel
     let channelArray = server.channels[channel];
@@ -88,6 +93,7 @@ function closeChannel(sessionId: string, channel: string | number) {
 
     if (channelArray.length === 0) {
         delete server.channels[channel];
+        server.prometheus.openChannelsGauge.dec();
     }
 
     let client: Client = server.clients[sessionId];
@@ -123,6 +129,10 @@ function transmitMessage(sessionId: string, channel: string | number, message: a
     meta.channel = channel;
     meta.guest = client.guest;
 
+    server.prometheus.messagesTrafficCounter.labels('incoming').inc();
+
+    server.prometheus.clientIdMessagesCounter.labels(client.uuid).inc();
+    server.prometheus.clientIPMessagesCounter.labels(client.ip || "localhost").inc();
 
     // Send message to the channel
     if (server.channels[channel]) {
@@ -136,6 +146,8 @@ function transmitMessage(sessionId: string, channel: string | number, message: a
                 message: message,
                 meta: meta,
             })
+            server.prometheus.messagesTrafficCounter.labels('outgoing').inc();
+            server.prometheus.channelMessagesCounter.labels(channel.toString()).inc();
         })
     }
 
@@ -150,6 +162,8 @@ function transmitMessage(sessionId: string, channel: string | number, message: a
                 message: message,
                 meta: meta,
             })
+            server.prometheus.messagesTrafficCounter.labels('outgoing').inc();
+            server.prometheus.channelMessagesCounter.labels(config.wildcardChannel).inc();
         })
     }
 
@@ -182,10 +196,14 @@ function authenticateClient(sessionId: string, token: string) {
 }
 
 function destroyClient(sessionId: string) {
-    let channels = server.clients[sessionId].channels;
+    let client = server.clients[sessionId]
+    let channels = client.channels;
     for (let channelName in channels) {
         closeChannel(sessionId, channelName);
     }
+    server.prometheus.clientCountGauge.dec()
+    server.prometheus.clientIdMessagesCounter.remove(client.uuid)
+    server.prometheus.clientIPMessagesCounter.remove(client.ip || "localhost")
     delete server.clients[sessionId];
 }
 
@@ -200,6 +218,8 @@ function buildClient(send: (data: any) => void, token?: string): Client {
     };
 
     server.clients[client.sessionId] = client;
+
+    server.prometheus.clientCountGauge.inc()
 
     if (token) {
         authenticateClient(client.sessionId, token);
@@ -288,6 +308,7 @@ const server: Server = {
     channels: {},
     config: config,
     httpServer: http.createServer(),
+    prometheus: new Prometheus(),
     log: function (...data) {
         console.log(...data);
     },

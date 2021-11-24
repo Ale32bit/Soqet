@@ -1,16 +1,33 @@
 import * as common from "../../common";
-import {Request, Response} from "./common";
+import { Request, Response } from "./common";
 import * as fs from "fs";
 import * as path from "path";
 
 export default function routes(server: common.Server, app: any) {
 
-    app.get("/", function(req: Request, res: Response) {
-	res.writeHead(302, {
-	  'Location': 'index.html'
-	});
-	res.end();
+    app.get("/", function (req: Request, res: Response) {
+        res.writeHead(302, {
+            'Location': 'index.html'
+        });
+        res.end();
     });
+
+    if (server.config.enablePrometheus) {
+        app.get("/metrics", async function (req: Request, res: Response) {
+            try {
+                res.setHeader('Content-Type', server.prometheus.client.register.contentType);
+                res.end(await server.prometheus.client.register.metrics());
+            } catch (e: any) {
+                console.error(e);
+                res.status(500).end(e.message);
+            }
+        })
+    }
+
+    if (!server.config.enablePolling) {
+        console.log("HTTP Long Polling is disabled!");
+        return;
+    }
 
     app.get("/api/connect", function (req: Request, res: Response) {
         let query = req.query;
@@ -21,6 +38,9 @@ export default function routes(server: common.Server, app: any) {
         }
 
         let client: common.PollingClient = server.buildClient(send, query.token) as common.PollingClient;
+        try {
+            client.ip = req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress;
+        } catch (_) { }
 
         client.pollingQueue = queue;
         client.pollingToken = "$" + common.randomString(63);
@@ -35,7 +55,7 @@ export default function routes(server: common.Server, app: any) {
         })
     });
 
-// POST PATHS HERE
+    // POST PATHS HERE
 
     app.post("/api/send", function (req: Request, res: Response) {
         let client = app.getClient(req, res);

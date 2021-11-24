@@ -1,6 +1,7 @@
 import http from "http";
 import crypto from "crypto";
 import Timeout = NodeJS.Timeout;
+import Prometheus from "./prometheus";
 
 export interface Client {
     uuid: string,
@@ -9,7 +10,7 @@ export interface Client {
     channelsAmount: number,
     send: (data: any) => void,
     guest: boolean,
-
+    ip?: string,
     socket?: any,
 }
 
@@ -31,6 +32,8 @@ export interface Server {
 
     httpServer: http.Server,
 
+    prometheus: Prometheus,
+
     config: {
         motd: string,
         httpPort: number,
@@ -40,6 +43,7 @@ export interface Server {
         enablePolling: boolean,
         wildcardChannel: string,
         pollingInterval: number,
+        enablePrometheus: boolean,
     },
 
     log: (...data: any) => void,

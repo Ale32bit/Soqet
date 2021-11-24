@@ -76,10 +76,7 @@ let app = {
 
 export default function run(srv: common.Server) {
     server = srv;
-    if (!server.config.enablePolling) {
-        console.log("HTTP Long Polling is disabled!");
-        return;
-    }
+    
 
     routers(srv, app);
 

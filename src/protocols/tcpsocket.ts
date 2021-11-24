@@ -17,6 +17,7 @@ export default function run(server: common.Server) {
         }
 
         let client = server.buildClient(send);
+        client.ip = socket.remoteAddress;
         client.socket = socket;
 
         let pingInterval = setInterval(function () {
@@ -48,6 +49,7 @@ export default function run(server: common.Server) {
 
         socket.on("close", () => {
             server.log("[TCP Close]", client.sessionId);
+            server.destroyClient(client.sessionId)
             clearInterval(pingInterval);
         })
 
