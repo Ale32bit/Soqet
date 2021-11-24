@@ -140,12 +140,13 @@ function transmitMessage(sessionId: string, channel: string | number, message: a
 
         channelArray.forEach(recipientId => {
             if (recipientId === sessionId) return;
-            server.clients[recipientId].send({
+            server.clients[recipientId]?.send({
                 type: "message",
                 channel: channel,
                 message: message,
                 meta: meta,
             })
+
             server.prometheus.messagesTrafficCounter.labels('outgoing').inc();
             server.prometheus.channelMessagesCounter.labels(channel.toString()).inc();
         })
@@ -156,14 +157,13 @@ function transmitMessage(sessionId: string, channel: string | number, message: a
     let wildcardChannelArray = server.channels[config.wildcardChannel];
     if (wildcardChannelArray) {
         wildcardChannelArray.forEach(recipientId => {
-            server.clients[recipientId].send({
+            server.clients[recipientId]?.send({
                 type: "message",
                 channel: config.wildcardChannel,
                 message: message,
                 meta: meta,
             })
             server.prometheus.messagesTrafficCounter.labels('outgoing').inc();
-            server.prometheus.channelMessagesCounter.labels(config.wildcardChannel).inc();
         })
     }
 
