@@ -5,7 +5,6 @@
   "enableWebsocket": true,
   "enableTCPSocket": true,
   "enablePolling": true,
-  "wildcardChannel": "*",
   "pollingInterval": 3600,
   "enablePrometheus": true
 }
