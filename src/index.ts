@@ -114,11 +114,6 @@ function transmitMessage(sessionId: string, channel: string | number, message: a
         }
     }
 
-    if (channel === config.wildcardChannel) return {
-        ok: false,
-        error: config.wildcardChannel + " is read-only",
-    }
-
     // Build the message meta
     let meta: MetaMessage = (rawMeta || {}) as MetaMessage;
 
@@ -149,21 +144,6 @@ function transmitMessage(sessionId: string, channel: string | number, message: a
 
             server.prometheus.messagesTrafficCounter.labels('outgoing').inc();
             server.prometheus.channelMessagesCounter.labels(channel.toString()).inc();
-        })
-    }
-
-    // Send message to wildcard channel
-
-    let wildcardChannelArray = server.channels[config.wildcardChannel];
-    if (wildcardChannelArray) {
-        wildcardChannelArray.forEach(recipientId => {
-            server.clients[recipientId]?.send({
-                type: "message",
-                channel: config.wildcardChannel,
-                message: message,
-                meta: meta,
-            })
-            server.prometheus.messagesTrafficCounter.labels('outgoing').inc();
         })
     }
 

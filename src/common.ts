@@ -41,7 +41,6 @@ export interface Server {
         enableWebsocket: boolean,
         enableTCPSocket: boolean,
         enablePolling: boolean,
-        wildcardChannel: string,
         pollingInterval: number,
         enablePrometheus: boolean,
     },
