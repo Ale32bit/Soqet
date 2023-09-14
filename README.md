@@ -1,3 +1,5 @@
+# [The new Soqet 3 is available here](https://github.com/Ale32bit/Soqet3)
+
 # Soqet
 This is the source code powering the Soqet Network.
 
